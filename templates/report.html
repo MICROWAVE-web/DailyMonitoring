@@ -132,45 +132,45 @@
 <script>
     // Словарь с цветами для каждого типа опции
     const colorMapping = {
-    "wakeup_time": {  // Было "wake_up"
-        lineColor: "#FF5733", // Оранжево-красный
-        fillColor: "rgba(255, 87, 51, 0.6)"
-    },
-    "pushups": {  // Было "push_ups"
-        lineColor: "#33FF57", // Ярко-зеленый
-        fillColor: "rgba(51, 255, 87, 0.6)"
-    },
-    "steps": {  // Аналог "run"
-        lineColor: "#3357FF", // Синий
-        fillColor: "rgba(51, 87, 255, 0.6)"
-    },
-    "meditation": {  // Оставлено как есть (хотя нет в humanOptionTitle)
-        lineColor: "#FFC300", // Желтый
-        fillColor: "rgba(255, 195, 0, 0.6)"
-    },
-    "abdomen": {
-        lineColor: "#9B59B6", // Фиолетовый
-        fillColor: "rgba(155, 89, 182, 0.6)"
-    },
-    "tree": {
-        lineColor: "#27AE60", // Зеленый (как дерево)
-        fillColor: "rgba(39, 174, 96, 0.6)"
-    },
-    "pullups": {
-        lineColor: "#3498DB", // Голубой
-        fillColor: "rgba(52, 152, 219, 0.6)"
-    },
-    "squats": {
-        lineColor: "#E74C3C", // Красный
-        fillColor: "rgba(231, 76, 60, 0.6)"
-    },
-    "abs": {
-        lineColor: "#F39C12", // Оранжевый
-        fillColor: "rgba(243, 156, 18, 0.6)"
-    },
-    "battery": {
-        lineColor: "#2ECC71", // Светло-зеленый
-        fillColor: "rgba(46, 195, 0, 0.6)"
+        "wakeup_time": {  // Было "wake_up"
+            lineColor: "#FF5733", // Оранжево-красный
+            fillColor: "rgba(255, 87, 51, 0.6)"
+        },
+        "pushups": {  // Было "push_ups"
+            lineColor: "#33FF57", // Ярко-зеленый
+            fillColor: "rgba(51, 255, 87, 0.6)"
+        },
+        "steps": {  // Аналог "run"
+            lineColor: "#3357FF", // Синий
+            fillColor: "rgba(51, 87, 255, 0.6)"
+        },
+        "meditation": {  // Оставлено как есть (хотя нет в humanOptionTitle)
+            lineColor: "#FFC300", // Желтый
+            fillColor: "rgba(255, 195, 0, 0.6)"
+        },
+        "abdomen": {
+            lineColor: "#9B59B6", // Фиолетовый
+            fillColor: "rgba(155, 89, 182, 0.6)"
+        },
+        "tree": {
+            lineColor: "#27AE60", // Зеленый (как дерево)
+            fillColor: "rgba(39, 174, 96, 0.6)"
+        },
+        "pullups": {
+            lineColor: "#3498DB", // Голубой
+            fillColor: "rgba(52, 152, 219, 0.6)"
+        },
+        "squats": {
+            lineColor: "#E74C3C", // Красный
+            fillColor: "rgba(231, 76, 60, 0.6)"
+        },
+        "abs": {
+            lineColor: "#F39C12", // Оранжевый
+            fillColor: "rgba(243, 156, 18, 0.6)"
+        },
+        "battery": {
+            lineColor: "#2ECC71", // Светло-зеленый
+            fillColor: "rgba(46, 195, 0, 0.6)"
         }
     };
 
@@ -216,31 +216,38 @@
             return hours * 60 + minutes;
         }
         if (value === 0) {
-            value = 0.01
+            value = 0
         }
         return parseFloat(value); // Если это число, возвращаем его как есть
     }
 
     // Преобразуем минуты обратно в формат HH:MM (если это время)
     function minutesToTime(value, option) {
-        if (option !== "wakeup_time" || option !== "abdomen" || option !== "tree") {
+        // console.log(value.toString(), option);
+        if (option === "wakeup_time" || option === "abdomen" || option === "tree") {
+            if (value >= 0) { // Если это время, преобразуем
+                const hours = Math.floor(value / 60).toString().padStart(2, '0');
+                const minutes = (value % 60).toString().padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+            return value.toString(); // Если это число, возвращаем его как строку
+        } else {
             return value
         }
-        if (value >= 60) { // Если это время, преобразуем
-            const hours = Math.floor(value / 60).toString().padStart(2, '0');
-            const minutes = (value % 60).toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
-        }
-        return value.toString(); // Если это число, возвращаем его как строку
+
     }
 
     // Пример данных отчета
-    const reportData = {{data | tojson}};
+    const reportData = JSON.parse('{{ data|safe }}');
+
+    let chartsContainer = document.getElementById('charts');
 
 
     let optionsData = reportData["options_data"];
     filteredOptionData = JSON.parse(JSON.stringify(optionsData))
-    let chartsContainer = document.getElementById('charts');
+
+    let optionsDataGoal = reportData["options_goal"];
+
 
     let greetings_title = document.querySelector(".greetings_title")
     greetings_title.innerHTML = `${reportData["fio"]}, вот ваша статистика`
@@ -292,7 +299,7 @@
     function applyDateFilter(startDate, endDate) {
         // Перебираем все типы данных (wake_up, push_ups и т.д.)
         filteredOptionData = JSON.parse(JSON.stringify(optionsData))
-        console.log(optionsData)
+
         // Перебираем все типы данных (wake_up, push_ups и т.д.)
         Object.keys(filteredOptionData).forEach(option => {
             // Фильтруем данные для каждого типа
@@ -306,7 +313,7 @@
             // Обновляем данные для текущего типа
             filteredOptionData[option] = filteredData;
         });
-        console.log(optionsData)
+        // console.log(optionsData)
 
         // Перестраиваем графики с отфильтрованными данными
         rebuildCharts();
@@ -319,8 +326,14 @@
         chartsContainer.innerHTML = '';
         Object.keys(filteredOptionData).forEach(option => {
             const data = filteredOptionData[option];
+            const goal = optionsDataGoal[option]
+            // console.log(goal)
             const labels = data.map((item, index) => formatDate(item.date_time, index));
-            const series = [data.map(item => timeToMinutes(item.value))];
+            const series = [
+                {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
+                {name: 'series-2', data: [...data.map(item => timeToMinutes(goal)), timeToMinutes(goal)]},
+
+            ];
 
             // Получаем цвета для текущего параметра
             const {lineColor, fillColor} = colorMapping[option] || {
@@ -355,11 +368,10 @@
                 labels: labels,
                 series: series
             }, {
-                fullWidth: false,
+                fullWidth: true,
                 chartPadding: {
                     right: 0
                 },
-                showArea: true,
                 axisY: {
                     labelInterpolationFnc: function (value) {
                         // Преобразуем минуты обратно в HH:MM для отображения
@@ -368,6 +380,15 @@
                 },
                 axisX: {
                     stretch: true
+                },
+                series: {
+                    'series-1': {
+                        showArea: true,
+                    },
+                    'series-2': {
+                        showPoint: false,
+                        showArea: false
+                    }
                 }
             });
 
@@ -384,10 +405,17 @@
 
             // On each drawn element by Chartist we use the Chartist.Svg API to trigger SMIL animations
             chart.on('draw', function (data) {
+                // console.log(data)
                 if (data.type === 'line') {
-                    data.element.attr({
-                        style: `stroke: ${lineColor}; stroke-width: 4px;`
-                    });
+                    if (data.series.name === 'series-2') {
+                        data.element.attr({
+                            style: `stroke: red; stroke-width: 2px;`
+                        });
+                    } else {
+                        data.element.attr({
+                            style: `stroke: ${lineColor}; stroke-width: 4px;`
+                        });
+                    }
                 } else if (data.type === 'point') {
                     data.element.attr({
                         style: `stroke: ${lineColor};`

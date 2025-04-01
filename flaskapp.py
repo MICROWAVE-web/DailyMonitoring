@@ -4,6 +4,7 @@ import random
 import string
 from datetime import datetime, timedelta
 
+from decouple import config
 from flask import Flask, jsonify, render_template
 
 from logging_file import get_logger
@@ -52,8 +53,9 @@ def view_report(user_id):
     request_data = load_data().get(user_id)
     if request_data is None:
         return jsonify({"error": "No data"}), 400
-    return render_template('report.html', data=request_data)
+    print(json.dumps(request_data))
+    return render_template('report.html', data=json.dumps(request_data))
 
 
 def flask_main():
-    app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)  # <--- исправление
+    app.run(host="127.0.0.1", port=int(config("FLASK_PORT")), debug=False, use_reloader=False)  # <--- исправление
