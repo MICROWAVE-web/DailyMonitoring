@@ -48,6 +48,7 @@ def get_statistics_keyboard(user_id: str, db: dict) -> InlineKeyboardMarkup:
     timezone_str = db[user_id]["timezone"]
 
     today = str(datetime.now(pytz.utc).astimezone(pytz.timezone(timezone_str)).date().today())
+    print(today)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     selected_options = db.get(user_id, {}).get("selected_options", [])

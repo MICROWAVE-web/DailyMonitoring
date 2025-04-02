@@ -360,6 +360,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     current_dt = user_time.strftime(FORMAT)
 
     now_dt = datetime.strptime(current_dt, FORMAT)
+    print(now_dt)
 
     if category_key not in user_entry["options_data"]:
         user_entry["options_data"][category_key] = []
@@ -367,7 +368,8 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     # Если человек пропустил несколько дней, то заполняем данные нулями
     if len(user_entry["options_data"][category_key]) > 0:
         last_dt = datetime.strptime(user_entry["options_data"][category_key][-1]["date_time"], FORMAT)
-        while last_dt < (now_dt - timedelta(hours=1)):
+        diff = now_dt - last_dt
+        while diff > timedelta(days=1):
             user_entry["options_data"][category_key].append({
                 "date_time": last_dt.strftime(FORMAT),
                 "value": "0"
