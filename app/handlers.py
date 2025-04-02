@@ -15,13 +15,9 @@ from app.keyboards import get_categories_keyboard, get_statistics_keyboard, get_
     geo_keybord
 from logging_file import get_logger
 
-
-
-tf = TimezoneFinder()
-
 logger = get_logger(__name__)  # Получаем логгер
 
-
+tf = TimezoneFinder()
 
 
 router = Router()
@@ -378,9 +374,17 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
             })
             last_dt += timedelta(days=1)
 
-    last_dt = datetime.strptime(user_entry["options_data"][category_key][-1]["date_time"], FORMAT)
-    if last_dt == now_dt:
-        user_entry["options_data"][category_key][-1]["value"] = str(message.text)
+    replaced = False
+    if len(user_entry["options_data"][category_key]) > 0:
+        last_dt = datetime.strptime(user_entry["options_data"][category_key][-1]["date_time"], FORMAT)
+        if last_dt == now_dt:
+            user_entry["options_data"][category_key][-1]["value"] = str(message.text)
+            replaced = True
+    if not replaced:
+        user_entry["options_data"][category_key].append({
+            "date_time": now_dt.strftime(FORMAT),
+            "value": str(message.text)
+        })
 
     db[user_id] = user_entry
     save_db(db)
