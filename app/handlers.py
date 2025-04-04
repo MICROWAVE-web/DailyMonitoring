@@ -375,6 +375,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
                 "value": "0"
             })
             last_dt += timedelta(days=1)
+            diff = now_dt - last_dt
 
     replaced = False
     if len(user_entry["options_data"][category_key]) > 0:
