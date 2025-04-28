@@ -132,44 +132,60 @@
 <script>
     // Словарь с цветами для каждого типа опции
     const colorMapping = {
-        "wakeup_time": {  // Было "wake_up"
-            lineColor: "#FF5733", // Оранжево-красный
+        "wakeup_time": {
+            lineColor: "#FF5733",
             fillColor: "rgba(255, 87, 51, 0.6)"
         },
-        "pushups": {  // Было "push_ups"
-            lineColor: "#33FF57", // Ярко-зеленый
+        "pushups": {
+            lineColor: "#33FF57",
             fillColor: "rgba(51, 255, 87, 0.6)"
         },
-        "steps": {  // Аналог "run"
-            lineColor: "#3357FF", // Синий
+        "steps": {
+            lineColor: "#3357FF",
             fillColor: "rgba(51, 87, 255, 0.6)"
         },
-        "meditation": {  // Оставлено как есть (хотя нет в humanOptionTitle)
-            lineColor: "#FFC300", // Желтый
+        "meditation": {
+            lineColor: "#FFC300",
             fillColor: "rgba(255, 195, 0, 0.6)"
         },
         "abdomen": {
-            lineColor: "#9B59B6", // Фиолетовый
+            lineColor: "#9B59B6",
             fillColor: "rgba(155, 89, 182, 0.6)"
         },
         "tree": {
-            lineColor: "#27AE60", // Зеленый (как дерево)
+            lineColor: "#27AE60",
             fillColor: "rgba(39, 174, 96, 0.6)"
         },
         "pullups": {
-            lineColor: "#3498DB", // Голубой
+            lineColor: "#3498DB",
             fillColor: "rgba(52, 152, 219, 0.6)"
         },
         "squats": {
-            lineColor: "#E74C3C", // Красный
+            lineColor: "#E74C3C",
             fillColor: "rgba(231, 76, 60, 0.6)"
         },
         "abs": {
-            lineColor: "#F39C12", // Оранжевый
+            lineColor: "#F39C12",
             fillColor: "rgba(243, 156, 18, 0.6)"
         },
+
+        "falconbreath": {
+            lineColor: "#bf6d30",
+            fillColor: "rgba(159,80,26,0.6)"
+        },
+
+        "swimming": {
+            lineColor: "#78dcbd",
+            fillColor: "rgba(145,228,190,0.6)"
+        },
+
+        "water": {
+            lineColor: "#4f99ec",
+            fillColor: "rgba(80,159,234,0.6)"
+        },
+
         "battery": {
-            lineColor: "#2ECC71", // Светло-зеленый
+            lineColor: "#2ECC71",
             fillColor: "rgba(46, 195, 0, 0.6)"
         }
     };
@@ -177,13 +193,18 @@
     const humanOptionTitle = {
         "wakeup_time": "🌅 Ранний подъём",
         "abdomen": "🌀 Лад живота",
-        "tree": "🌳 Дерево Жизни",
+        "tree": "🌳 Дерево жизни",
+        "falconbreath": "🦅 Дыхание сокола",
+        "swimming": "🏊 Плаванье",
+        "water": "💧 Вода",
         "steps": "🚶 Ходьба",
         "pushups": "💪 Отжимания",
         "pullups": "🤸 Подтягивания",
         "squats": "🏋️ Приседания",
         "abs": "🧘 Пресс",
         "battery": "🔋 Состояние",
+        // "intention": "🎯 Намерение",  Не нужно
+        // "note": "📝 Заметки за день", Не нужно
     }
 
     // Функция форматирования даты
@@ -224,7 +245,7 @@
     // Преобразуем минуты обратно в формат HH:MM (если это время)
     function minutesToTime(value, option) {
         // console.log(value.toString(), option);
-        if (option === "wakeup_time" || option === "abdomen" || option === "tree") {
+        if (option === "wakeup_time" || option === "abdomen" || option === "tree" || option === "falconbreath" || option === "swimming") {
             if (value >= 0) { // Если это время, преобразуем
                 const hours = Math.floor(value / 60).toString().padStart(2, '0');
                 const minutes = (value % 60).toString().padStart(2, '0');

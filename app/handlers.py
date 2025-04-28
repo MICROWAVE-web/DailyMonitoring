@@ -1,5 +1,3 @@
-import json
-import os
 from datetime import datetime, timedelta
 
 import pytz
@@ -19,8 +17,9 @@ logger = get_logger(__name__)  # Получаем логгер
 
 tf = TimezoneFinder()
 
-
 router = Router()
+
+FORMAT = "%Y-%m-%d"
 
 
 # FSM-состояния для настройки параметров
@@ -34,6 +33,12 @@ class ConfigState(StatesGroup):
     abs = State()  # настройка пресса
     abdomen = State()  # настройка Лада живота
     tree = State()  # настройка Дерева Жизни
+
+    falconbreath = State()
+    swimming = State()
+    water = State()
+    intention = State()
+    note = State()
 
 
 # FSM-состояния для внесения данных в статистику
@@ -79,8 +84,19 @@ async def get_next_option_to_set(message: Message, state: FSMContext):
             await message.answer(MESSAGES["enter_tree"])
             await state.set_state(ConfigState.tree)
 
-        elif next_item == "battery":
+        elif next_item == "falconbreath":
+            await message.answer(MESSAGES["enter_falconbreath"])
+            await state.set_state(ConfigState.falconbreath)
 
+        elif next_item == "swimming":
+            await message.answer(MESSAGES["enter_swimming"])
+            await state.set_state(ConfigState.swimming)
+
+        # elif next_item == "water":
+        #     await message.answer(MESSAGES["enter_water"])
+        #     await state.set_state(ConfigState.water)
+
+        elif next_item in ["battery", "water", "intention", "note"]:
             await get_next_option_to_set(message, state)
     else:
         await message.answer(MESSAGES["config_complete"], reply_markup=get_reply_keyboard())
@@ -309,6 +325,52 @@ async def process_tree(message: Message, state: FSMContext) -> None:
     await get_next_option_to_set(message, state)
 
 
+@router.message(ConfigState.falconbreath)
+async def process_falconbreath(message: Message, state: FSMContext) -> None:
+    try:
+        datetime.strptime(message.text, '%M:%S')
+    except ValueError:
+        await message.answer("Неверный формат времени. Введите время в формате Минуты:Секунды (например, 01:40):")
+        return
+
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["falconbreath"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)
+
+
+@router.message(ConfigState.swimming)
+async def process_swimming(message: Message, state: FSMContext) -> None:
+    try:
+        datetime.strptime(message.text, '%M:%S')
+    except ValueError:
+        await message.answer("Неверный формат времени. Введите время в формате Минуты:Секунды (например, 01:40):")
+        return
+
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["swimming"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)
+
+
+"""@router.message(ConfigState.water)
+async def process_water(message: Message, state: FSMContext) -> None:
+    try:
+        datetime.strptime(message.text, '%M:%S')
+    except ValueError:
+        await message.answer(
+            "Неверный формат времени. Введите время в формате Минуты:Секунды (например, 01:40):")
+        return
+
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["water"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)"""
+
+
 # --- Обработчики внесения данных статистики ---
 @router.callback_query(lambda c: c.data and c.data.startswith("entry:"))
 async def callback_data_entry(callback: CallbackQuery, state: FSMContext) -> None:
@@ -325,13 +387,13 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     data = await state.get_data()
     category_key = data.get("entry_category")
-    if category_key in ["wakeup_time", "abdomen", "tree"]:
+    if category_key in ["wakeup_time", "swimming"]:
         try:
             datetime.strptime(message.text, '%H:%M')
         except ValueError:
             await message.answer("Неверный формат времени. Введите время в формате Часы:Минуты (например, 07:00):")
             return
-    elif category_key in ["abdomen", "tree"]:
+    elif category_key in ["abdomen", "tree", "falconbreath"]:
         try:
             datetime.strptime(message.text, '%M:%S')
         except ValueError:
@@ -345,13 +407,16 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
         if not message.text.isdigit():
             await message.answer("Пожалуйста, введите корректное числовое значение. Попробуйте снова:")
             return
+    elif category_key == "water":
+        if not message.text.strip().lower() in ["ага", "да", "конечно", "нет", "не", "неа"]:
+            await message.answer("Пожалуйста, введите корректное значение (Да/Нет). Попробуйте снова:")
+            return
     db = load_db()
     user_entry = db.get(user_id)
     if user_entry is None:
         await message.answer(MESSAGES["user_not_found"])
         return
 
-    FORMAT = "%Y-%m-%d"
     current_utc_time = datetime.now(pytz.utc)
 
     # Переводим в нужный часовой пояс
@@ -377,16 +442,24 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
             last_dt += timedelta(days=1)
             diff = now_dt - last_dt
 
+    value_to_save = str(message.text)
+
+    if category_key == "water":
+        if value_to_save.lower() in ["ага", "да", "конечно"]:
+            value_to_save = "1"
+        else:
+            value_to_save = "0"
+
     replaced = False
     if len(user_entry["options_data"][category_key]) > 0:
         last_dt = datetime.strptime(user_entry["options_data"][category_key][-1]["date_time"], FORMAT)
         if last_dt == now_dt:
-            user_entry["options_data"][category_key][-1]["value"] = str(message.text)
+            user_entry["options_data"][category_key][-1]["value"] = value_to_save
             replaced = True
     if not replaced:
         user_entry["options_data"][category_key].append({
             "date_time": now_dt.strftime(FORMAT),
-            "value": str(message.text)
+            "value": value_to_save
         })
 
     db[user_id] = user_entry
@@ -397,8 +470,77 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     await state.clear()
 
 
+def get_daily_report(user_id):
+    daily_report_text = ""
+
+    daily_report_elements = []
+
+    db = load_db()
+    timezone_str = db[user_id]["timezone"]
+
+    today_date_object = datetime.now(pytz.utc).astimezone(pytz.timezone(timezone_str)).date()
+    today = str(today_date_object.today())
+
+    min_date = None
+    selected_options = db.get(user_id, {}).get("selected_options", [])
+    for key in selected_options:
+        records = db.get(user_id, {}).get("options_data", {}).get(key, [])
+        goal = db.get(user_id, {}).get("options_goal", {}).get(key, "0")
+        if not records:
+            continue
+        min_date_in_records = min([datetime.strptime(rec["date_time"], FORMAT).date() for rec in records])
+        if min_date is None:
+            min_date = min_date_in_records
+        min_date = min(min_date, min_date_in_records)
+
+        record = [rec for rec in records if rec["date_time"].startswith(today)]
+        if len(record) > 0:
+            record = record[0]
+            name = CATEGORIES.get(key, key)
+            record_val = f": {record['value']}"
+            if key == 'water':
+                record_val = ''
+
+            if key not in ["intention", "note"]:
+                if record['value'] >= goal:
+                    record_val += ' ✅'
+
+            if key == "battery":
+                record_val += """
+➖ 0 — «Еле живой»  
+➖ 5 — «Держусь»  
+➖ 10 — «Энергия через край!»"""
+
+            daily_report_elements.append([key, f"{name}{record_val}\n"])
+
+    daily_report_elements.sort(key=lambda elem: list(CATEGORIES.keys()).index(elem[0]))
+    daily_report_text = "".join([elem[1] for elem in daily_report_elements])
+
+    date_delta = (today_date_object - min_date).days
+    daily_report_text = (f"🗓 Дата: {today.split('-')[-1]}.{today.split('-')[-2]} (день {date_delta})\n" +
+                         daily_report_text)
+
+    return daily_report_text
+
+
+def get_goals(user_id):
+    db = load_db()
+    selected_options = db.get(user_id, {}).get("selected_options", [])
+    goals_elems = []
+    for key in selected_options:
+        name = CATEGORIES.get(key, key)
+        goal = db.get(user_id, {}).get("options_goal", {}).get(key)
+        if goal:
+            goals_elems.append([key, f"{name}: {goal}\n"])
+
+    goals_elems.sort(key=lambda elem: list(CATEGORIES.keys()).index(elem[0]))
+    goals_text = "".join([elem[1] for elem in goals_elems])
+
+    return goals_text
+
+
 # --- Обработчик reply‑клавиатуры ---
-@router.message(F.text.in_(["Добавить запись", "Настройки", "Посмотреть статистику"]))
+@router.message(F.text.in_(["Добавить запись", "Настройки", "Посмотреть статистику", "Дневной отчёт", "Мои нормы"]))
 async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     db = load_db()
@@ -409,5 +551,8 @@ async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
         await message.answer(text, reply_markup=get_categories_keyboard(user_id, db))
     elif message.text == "Посмотреть статистику":
         text = MESSAGES["get_link"](user_id)
-        print(text)
         await message.answer(text, reply_markup=get_reply_keyboard(), parse_mode='HTML')
+    elif message.text == "Дневной отчёт":
+        await message.answer(get_daily_report(user_id), parse_mode='HTML')
+    elif message.text == "Мои нормы":
+        await message.answer(get_goals(user_id), parse_mode='HTML')

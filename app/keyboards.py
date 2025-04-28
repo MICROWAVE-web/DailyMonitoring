@@ -12,13 +12,18 @@ logger = get_logger(__name__)  # Получаем логгер
 CATEGORIES = {
     "wakeup_time": "🌅 Ранний подъём",
     "abdomen": "🌀 Лад живота",
-    "tree": "🌳 Дерево Жизни",
+    "tree": "🌳 Дерево жизни",
+    "falconbreath": "🦅 Дыхание сокола",
+    "swimming": "🏊 Плаванье",
+    "water": "💧 Вода",
     "steps": "🚶 Ходьба",
     "pushups": "💪 Отжимания",
     "pullups": "🤸 Подтягивания",
     "squats": "🏋️ Приседания",
     "abs": "🧘 Пресс",
     "battery": "🔋 Состояние",
+    "intention": "🎯 Намерение",
+    "note": "📝 Заметки за день",
 }
 
 
@@ -48,7 +53,6 @@ def get_statistics_keyboard(user_id: str, db: dict) -> InlineKeyboardMarkup:
     timezone_str = db[user_id]["timezone"]
 
     today = str(datetime.now(pytz.utc).astimezone(pytz.timezone(timezone_str)).date().today())
-    print(today)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     selected_options = db.get(user_id, {}).get("selected_options", [])
@@ -69,6 +73,8 @@ def get_reply_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="Добавить запись")],
             [KeyboardButton(text="Посмотреть статистику")],
+            [KeyboardButton(text="Дневной отчёт")],
+            [KeyboardButton(text="Мои нормы")],
             [KeyboardButton(text="Настройки")],
             [KeyboardButton(text="📍 Поменять локацию", request_location=True)]],
 
@@ -123,6 +129,10 @@ MESSAGES = {
     "enter_abs": "Введите норму количества повторов пресса (например, 15):",
     "enter_abdomen": "Введите норму для Лада живота (например, 01:30):",
     "enter_tree": "Введите норму для Дерева Жизни (например, 02:30):",
+
+    "enter_falconbreath": "Введите норму для Дыхания сокола (например, 01:30):",
+    "enter_swimming": "Введите норму для плаванья (например, 10:00):",
+
 
     "get_link": lambda user_id: f'📈 Вот ваша <a href="http://83.222.25.179:8015/report/{user_id}">Ссылка на статистику</a>',
 }
