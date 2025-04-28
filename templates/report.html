@@ -357,11 +357,11 @@
             if (goal) {
                 series = [
                     {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
+                    {name: 'series-2', data: [...data.map(item => timeToMinutes(goal)), timeToMinutes(goal)]},
                 ];
             } else {
                 series = [
                     {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
-                    {name: 'series-2', data: [...data.map(item => timeToMinutes(goal)), timeToMinutes(goal)]},
                 ];
             }
 
