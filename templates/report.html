@@ -346,6 +346,10 @@
         // Очищаем контейнер с графиками
         chartsContainer.innerHTML = '';
         Object.keys(filteredOptionData).forEach(option => {
+            if (!["intention", "note"].includes(a)) {
+              return
+            }
+
             const data = filteredOptionData[option];
             const goal = optionsDataGoal[option]
             console.log(option)
