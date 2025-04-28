@@ -354,11 +354,11 @@
             const labels = data.map((item, index) => formatDate(item.date_time, index));
 
             if (goal) {
-                const series = [
+                let series = [
                     {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
                 ];
             } else {
-                const series = [
+                let series = [
                     {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
                     {name: 'series-2', data: [...data.map(item => timeToMinutes(goal)), timeToMinutes(goal)]},
                 ];
