@@ -346,7 +346,7 @@
         // Очищаем контейнер с графиками
         chartsContainer.innerHTML = '';
         Object.keys(filteredOptionData).forEach(option => {
-            if (!["intention", "note"].includes(option)) {
+            if (["intention", "note"].includes(option)) {
               return
             }
 
