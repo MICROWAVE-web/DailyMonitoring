@@ -348,7 +348,9 @@
         Object.keys(filteredOptionData).forEach(option => {
             const data = filteredOptionData[option];
             const goal = optionsDataGoal[option]
-            // console.log(goal)
+            console.log(option)
+            console.log(goal)
+            console.log("_")
             const labels = data.map((item, index) => formatDate(item.date_time, index));
             const series = [
                 {name: 'series-1', data: data.map(item => timeToMinutes(item.value))},
