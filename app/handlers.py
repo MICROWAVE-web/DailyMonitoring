@@ -13,7 +13,7 @@ from timezonefinder import TimezoneFinder
 
 from app.db import load_db, save_db
 from app.keyboards import get_categories_keyboard, get_statistics_keyboard, get_reply_keyboard, CATEGORIES, MESSAGES, \
-    geo_keybord, get_buddies_keyboard, get_kick_keyboard
+    geo_keybord, get_buddies_keyboard
 from app.tasks import schedule_custom_reminder, schedule_fixed_reminder
 from logging_file import get_logger
 
@@ -456,6 +456,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     data = await state.get_data()
     category_key = data.get("entry_category")
+    yesterday = data.get("yesterday")
 
     if category_key in ["wakeup_time", "swimming"]:
         try:
@@ -491,6 +492,9 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
 
     # Переводим в нужный часовой пояс
     user_time = current_utc_time.astimezone(pytz.timezone(user_entry["timezone"]))
+
+    if yesterday:
+        user_time -= timedelta(days=1)
 
     current_dt = user_time.strftime(FORMAT)
 
@@ -535,7 +539,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     save_db(db)
     await message.answer(MESSAGES["value_saved"](category_key))
     await message.answer("Выберите другую категорию для внесения данных:",
-                         reply_markup=get_statistics_keyboard(user_id, db))
+                         reply_markup=get_statistics_keyboard(user_id))
     await state.clear()
 
 
@@ -620,6 +624,7 @@ reply_text = [
     "Выгнать 🚫",
     "Установить время напоминания 🕓",
     "Назад 🔙",
+    "Забыл вчера внести данные",
 ]
 
 
@@ -763,7 +768,11 @@ async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     db = load_db()
     if message.text == "Добавить запись":
-        await message.answer(MESSAGES["enter_new_day"], reply_markup=get_statistics_keyboard(user_id, db))
+        await state.update_data(yesterday=False)
+        await message.answer(MESSAGES["enter_new_day"], reply_markup=get_statistics_keyboard(user_id))
+    if message.text == "Забыл вчера внести данные":
+        await state.update_data(yesterday=True)
+        await message.answer(MESSAGES["enter_past_day"], reply_markup=get_statistics_keyboard(user_id, yesterday=True))
     elif message.text == "Настройки":
         text = MESSAGES["settings_title"]
         await message.answer(text, reply_markup=get_categories_keyboard(user_id, db))
@@ -793,10 +802,6 @@ async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
         )
         await message.answer(MESSAGES["buddy_invite_choose_method"], reply_markup=kb)
         await state.set_state("waiting_for_buddy_invite_method")
-
-
-
-
 
     elif message.text == "Выгнать 🚫":
         db = load_db()

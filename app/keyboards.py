@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
@@ -48,7 +48,7 @@ def get_categories_keyboard(user_id: str, db: dict) -> InlineKeyboardMarkup:
     return kb
 
 
-def get_statistics_keyboard(user_id: str, db: dict) -> InlineKeyboardMarkup:
+def get_statistics_keyboard(user_id: str, yesterday=False) -> InlineKeyboardMarkup:
     """
     Формирует inline‑клавиатуру для внесения данных за текущий день.
     Если данные для выбранного параметра уже внесены (на текущую дату),
@@ -58,7 +58,11 @@ def get_statistics_keyboard(user_id: str, db: dict) -> InlineKeyboardMarkup:
     db = load_db()
     timezone_str = db[user_id]["timezone"]
 
+
     today = str(datetime.now(pytz.utc).astimezone(pytz.timezone(timezone_str)).date().today())
+
+    if yesterday:
+        today = str(datetime.now(pytz.utc).astimezone(pytz.timezone(timezone_str)).date() - timedelta(days=1))
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     selected_options = db.get(user_id, {}).get("selected_options", [])
@@ -78,6 +82,7 @@ def get_reply_keyboard() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Добавить запись")],
+            [KeyboardButton(text="Забыл вчера внести данные")],
             [KeyboardButton(text="Посмотреть статистику")],
             [KeyboardButton(text="Дневной отчёт")],
             [KeyboardButton(text="Мои Бади")],
@@ -145,6 +150,7 @@ MESSAGES = {
     "enter_value": lambda category_name: f"Введите значение для категории {category_name}:",
     "value_saved": lambda category_key: f"Значение для категории {CATEGORIES[category_key]} сохранено!",
     "enter_new_day": "Занесите данные нового дня:",
+    "enter_past_day": "Занесите данные вчерашнего дня:",
     "invalid_time": "Неверный формат времени. Введите время в формате ЧЧ:ММ (например, 07:00):",
     "invalid_battery": "Пожалуйста, введите число от 1 до 10 для категории Состояние (battery). Попробуйте снова:",
     "invalid_number": "Пожалуйста, введите корректное числовое значение. Попробуйте снова:",
