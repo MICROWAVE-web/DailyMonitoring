@@ -539,7 +539,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     save_db(db)
     await message.answer(MESSAGES["value_saved"](category_key))
     await message.answer("Выберите другую категорию для внесения данных:",
-                         reply_markup=get_statistics_keyboard(user_id))
+                         reply_markup=get_statistics_keyboard(user_id, yesterday=yesterday))
 
     await state.clear()
     if yesterday:
