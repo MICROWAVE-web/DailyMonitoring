@@ -539,6 +539,8 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
             "value": value_to_save
         })
 
+    user_entry["options_data"][category_key].sort(key=lambda x: x["date_time"])
+
     db[user_id] = user_entry
     save_db(db)
     await message.answer(MESSAGES["value_saved"](category_key))
