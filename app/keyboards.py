@@ -80,6 +80,7 @@ def get_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="Добавить запись")],
             [KeyboardButton(text="Посмотреть статистику")],
             [KeyboardButton(text="Дневной отчёт")],
+            [KeyboardButton(text="Мои Бади")],
             [KeyboardButton(text="Мои нормы")],
             [KeyboardButton(text="Настройки")],
             [KeyboardButton(text="📍 Поменять локацию", request_location=True)]],
@@ -88,6 +89,22 @@ def get_reply_keyboard() -> ReplyKeyboardMarkup:
     )
     return kb
 
+
+def get_buddies_keyboard() -> ReplyKeyboardMarkup:
+    """
+    Формирует reply‑клавиатуру с кнопками «Занести данные нового дня» и «Настройки».
+    """
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Добавить 👤")],
+            [KeyboardButton(text="Выгнать 🚫")],
+            [KeyboardButton(text="Установить время напоминания 🕓")],
+            [KeyboardButton(text="Назад 🔙")],
+        ],
+
+        resize_keyboard=True
+    )
+    return kb
 
 def geo_keybord() -> ReplyKeyboardMarkup:
     """
@@ -102,6 +119,13 @@ def geo_keybord() -> ReplyKeyboardMarkup:
         resize_keyboard=True
     )
     return kb
+
+def get_kick_keyboard(buddy_ids: list[int]) -> ReplyKeyboardMarkup:
+    buttons = [[KeyboardButton(text=str(uid))] for uid in buddy_ids]
+    buttons.append([KeyboardButton(text="Назад 🔙")])
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+
 
 
 # Сообщения бота
@@ -125,6 +149,29 @@ MESSAGES = {
     "invalid_battery": "Пожалуйста, введите число от 1 до 10 для категории Состояние (battery). Попробуйте снова:",
     "invalid_number": "Пожалуйста, введите корректное числовое значение. Попробуйте снова:",
     "user_not_found": "Ошибка: пользователь не найден в базе данных.",
+
+
+    # Бади
+    # Приглашение в бади
+    "buddy_invite_choose_method": "Выберите способ добавления:",
+    "buddy_invite_contact": "Попросите друга нажать кнопку ниже и поделиться контактом:",
+    "buddy_invite_id": "Введите ID пользователя, которого хотите добавить:",
+    "buddy_added": lambda name_or_id: f"Пользователь <b>{name_or_id}</b> добавлен в бади!",
+    "buddy_already_added": "Этот пользователь уже у вас в бади.",
+    "buddy_self_error": "Нельзя добавить самого себя 🙂",
+    "buddy_invalid_id": "Введите корректный числовой ID.",
+    "buddy_invalid_id_undefined": "Этого id нет в базе данных 😔",
+    "buddy_back": "Окей. Возвращаемся в меню.",
+    "buddy_use_button": "Пожалуйста, воспользуйтесь кнопкой для отправки контакта.",
+
+    "chose_buddy_option": lambda buddies: (
+            "Твои Бади:\n" +
+            "\n".join([f"<b>{buddies[b_key]['name']}</b> — (id={b_key})" for b_key in buddies]) if buddies else MESSAGES["empty"]
+    ),
+    "invite": "Кого хочешь добавить? 🏷️ Просто пришли мне его @тег",
+    "kick_choose": "Выбери кого хочешь выгнать:",
+    "empty": "У вас сейчас нет бади 😔",
+
 
     # Запросы на ввод значений для настроек
     "enter_wakeup": "Введите норму времени подъёма (например, 07:00):",

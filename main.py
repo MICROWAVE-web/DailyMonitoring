@@ -2,16 +2,16 @@ import asyncio
 import logging
 import threading
 
-from aiogram import Bot, Dispatcher
-from decouple import config
-
 from app.handlers import router
+from app.tasks import schedule_all_reminders
 from flaskapp import flask_main
+from headers import dp, bot
 
-bot = Bot(token=config("BOT_TOKEN"))
-dp = Dispatcher()
 dp.include_router(router)
 
+@dp.startup()
+async def on_startup():
+    await schedule_all_reminders()
 
 def main():
     try:

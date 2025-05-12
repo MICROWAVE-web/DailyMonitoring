@@ -1,19 +1,23 @@
+import re
 from datetime import datetime, timedelta
+from itertools import count
 
 import pytz
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton, KeyboardButtonRequestUsers, \
+    InlineKeyboardMarkup, InlineKeyboardButton
 from timezonefinder import TimezoneFinder
 
 from app.db import load_db, save_db
 from app.keyboards import get_categories_keyboard, get_statistics_keyboard, get_reply_keyboard, CATEGORIES, MESSAGES, \
-    geo_keybord
+    geo_keybord, get_buddies_keyboard, get_kick_keyboard
+from app.tasks import schedule_reminder
 from logging_file import get_logger
 
-logger = get_logger(__name__)  # Получаем логгер
+logger = get_logger(__name__)
 
 tf = TimezoneFinder()
 
@@ -108,7 +112,7 @@ async def get_next_option_to_set(message: Message, state: FSMContext):
         #     await message.answer(MESSAGES["enter_water"])
         #     await state.set_state(ConfigState.water)
 
-        #elif next_item in ["battery", "water", "intention", "note"]:
+        # elif next_item in ["battery", "water", "intention", "note"]:
         else:
             await get_next_option_to_set(message, state)
     else:
@@ -367,6 +371,7 @@ async def process_swimming(message: Message, state: FSMContext) -> None:
     save_db(db)
     await get_next_option_to_set(message, state)
 
+
 @router.message(ConfigState.swimming)
 async def process_swimming(message: Message, state: FSMContext) -> None:
     try:
@@ -405,6 +410,7 @@ async def process_abs(message: Message, state: FSMContext) -> None:
     save_db(db)
     await get_next_option_to_set(message, state)
 
+
 """@router.message(ConfigState.water)
 async def process_water(message: Message, state: FSMContext) -> None:
     try:
@@ -437,7 +443,6 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     data = await state.get_data()
     category_key = data.get("entry_category")
-
 
     if category_key in ["wakeup_time", "swimming"]:
         try:
@@ -588,8 +593,159 @@ def get_goals(user_id):
     return goals_text
 
 
+
+reply_text = [
+    "Добавить запись",
+    "Настройки",
+    "Посмотреть статистику",
+    "Дневной отчёт",
+    "Мои нормы",
+    "Мои Бади",
+    
+    # Бади
+    "Добавить 👤",
+    "Выгнать 🚫",
+    "Установить время напоминания 🕓",
+    "Назад 🔙",
+]
+
+
+
+@router.message(StateFilter("waiting_for_buddy_kick"))
+async def handle_buddy_kick(message: Message, state: FSMContext):
+    db = load_db()
+    user_id = str(message.from_user.id)
+    buddy_id = message.text.strip()
+
+    if buddy_id.isdigit() and str(buddy_id) in db[user_id].get("buddies", {}):
+        db[user_id]["buddies"].pop(str(buddy_id))
+        save_db(db)
+        await message.answer(f"Пользователь {buddy_id} удалён из бади")
+    else:
+        await message.answer("Некорректный выбор")
+    await state.clear()
+
+
+
+@router.message(StateFilter("waiting_for_remind_time"))
+async def handle_remind_time(message: Message, state: FSMContext):
+    db = load_db()
+    user_id = str(message.from_user.id)
+    new_time = message.text.strip()
+
+    if not re.match(r"^\d{2}:\d{2}$", new_time):
+        await message.answer(MESSAGES["invalid_time"])
+        return
+
+    db.get(user_id, {})["buddies_remind"] = new_time
+    save_db(db)
+    await schedule_reminder(user_id, new_time, db[user_id]["timezone"])
+
+    await message.answer(f"Время напоминания установлено: {new_time}")
+    await state.clear()
+
+
+@router.message(StateFilter("waiting_for_buddy_invite_method"))
+async def choose_invite_method(message: Message, state: FSMContext):
+    text = message.text
+    if text == "Ввести ID вручную":
+        await message.answer(MESSAGES["buddy_invite_id"])
+        await state.set_state("waiting_for_buddy_id")
+    elif message.contact or message.chat_shared or message.user_shared:
+        await handle_buddy_contact(message, state)
+    elif text == "Назад 🔙":
+        await message.answer(MESSAGES["buddy_back"], reply_markup=get_reply_keyboard())
+        await state.clear()
+    else:
+        await message.answer(MESSAGES["buddy_use_button"])
+
+
+
+async def handle_buddy_contact(message: Message, state: FSMContext):
+    db = load_db()
+    user_id = str(message.from_user.id)
+
+    buddy_object = None
+    if message.contact:
+        buddy_object = message.contact
+
+    elif message.chat_shared:
+        buddy_object = message.chat_shared
+
+    elif message.user_shared:
+        buddy_object = message.user_shared
+
+    buddy_id = str(buddy_object.user_id)
+
+    if buddy_id not in db.keys():
+        await message.answer(MESSAGES["buddy_invalid_id_undefined"])
+
+    if buddy_id == user_id:
+        await message.answer(MESSAGES["buddy_self_error"])
+        return
+
+    db.setdefault(user_id, {}).setdefault("buddies", {})
+    if buddy_id not in db[user_id]["buddies"].keys():
+        db[user_id]["buddies"][buddy_id] = {
+            "name": db[buddy_id]["fio"],
+        }
+        save_db(db)
+        await message.answer(MESSAGES["buddy_added"](db[buddy_id]["fio"]), reply_markup=get_reply_keyboard(), parse_mode="HTML")
+    else:
+        await message.answer(MESSAGES["buddy_already_added"], reply_markup=get_reply_keyboard())
+
+    await state.clear()
+
+
+
+@router.message(StateFilter("waiting_for_buddy_id"))
+async def handle_buddy_id_manual(message: Message, state: FSMContext):
+    db = load_db()
+    user_id = str(message.from_user.id)
+    buddy_id = message.text.strip()
+
+    if not buddy_id.isdigit():
+        await message.answer(MESSAGES["buddy_invalid_id"])
+        return
+
+    if buddy_id not in db.keys():
+        await message.answer(MESSAGES["buddy_invalid_id_undefined"])
+
+    if buddy_id == user_id:
+        await message.answer(MESSAGES["buddy_self_error"])
+        return
+
+    db.setdefault(user_id, {}).setdefault("buddies", [])
+    if buddy_id not in db[user_id]["buddies"]:
+        db[user_id]["buddies"][buddy_id] = {
+            "name": db[buddy_id]["fio"],
+        }
+        await message.answer(MESSAGES["buddy_added"](buddy_id), reply_markup=get_reply_keyboard())
+    else:
+        await message.answer(MESSAGES["buddy_already_added"], reply_markup=get_reply_keyboard())
+
+    await state.clear()
+
+
+@router.callback_query(F.data.startswith("kick_buddy:"))
+async def handle_kick_buddy_callback(callback: CallbackQuery):
+    db = load_db()
+    user_id = str(callback.from_user.id)
+    buddy_id = callback.data.split(":")[1]
+
+    if buddy_id not in db.get(user_id, {}).get("buddies", {}):
+        await callback.answer("Этот пользователь уже не в вашем списке.", show_alert=True)
+        return
+
+    db[user_id]["buddies"].pop(buddy_id)
+    save_db(db)
+
+    buddy_name = db.get(str(buddy_id), {}).get("fio", str(buddy_id))
+    await callback.message.edit_text(f"✅ {buddy_name} был удалён из ваших бади.")
+
+
 # --- Обработчик reply‑клавиатуры ---
-@router.message(F.text.in_(["Добавить запись", "Настройки", "Посмотреть статистику", "Дневной отчёт", "Мои нормы"]))
+@router.message(F.text.in_(reply_text))
 async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     db = load_db()
@@ -605,3 +761,53 @@ async def reply_keyboard_handler(message: Message, state: FSMContext) -> None:
         await message.answer(get_daily_report(user_id), parse_mode='HTML')
     elif message.text == "Мои нормы":
         await message.answer(get_goals(user_id), parse_mode='HTML')
+    elif message.text == "Мои Бади":
+        await message.answer("Что будем делать?\n\n"  + MESSAGES["chose_buddy_option"](db[user_id].setdefault("buddies", {})), reply_markup=get_buddies_keyboard(), parse_mode='HTML')
+
+    elif message.text == "Добавить 👤":
+        kb = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="Поделиться контактом 🤝", request_users=KeyboardButtonRequestUsers(
+                        request_id=next(count(start=1, step=1)),
+                        user_is_premium=False,
+                        user_is_bot=False
+                    ))],
+                [KeyboardButton(text="Ввести ID вручную")],
+                [KeyboardButton(text="Назад 🔙")],
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=True,
+        )
+        await message.answer(MESSAGES["buddy_invite_choose_method"], reply_markup=kb)
+        await state.set_state("waiting_for_buddy_invite_method")
+
+
+
+
+
+    elif message.text == "Выгнать 🚫":
+        db = load_db()
+        user_id = str(message.from_user.id)
+        buddies = db.get(user_id, {}).get("buddies", {}).keys()
+        if not buddies:
+            await message.answer(MESSAGES["empty"])
+            return
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text=f"{db.get(str(b_id), {}).get('fio', 'Без имени')} — ({b_id})",
+                    callback_data=f"kick_buddy:{b_id}"
+                )]
+                for b_id in buddies
+            ]
+        )
+        await message.answer("Выберите, кого хотите выгнать из бади:", reply_markup=keyboard)
+
+
+    elif message.text == "Установить время напоминания 🕓":
+        await message.answer("Введите время напоминания в формате ЧЧ:ММ:")
+        await state.set_state("waiting_for_remind_time")
+
+    elif message.text == "Назад 🔙":
+        await message.answer("Главное меню", reply_markup=get_reply_keyboard(), parse_mode='HTML')
+
