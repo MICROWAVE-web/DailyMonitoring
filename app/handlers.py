@@ -14,7 +14,7 @@ from timezonefinder import TimezoneFinder
 from app.db import load_db, save_db
 from app.keyboards import get_categories_keyboard, get_statistics_keyboard, get_reply_keyboard, CATEGORIES, MESSAGES, \
     geo_keybord, get_buddies_keyboard, get_kick_keyboard
-from app.tasks import schedule_reminder
+from app.tasks import schedule_custom_reminder, schedule_fixed_reminder
 from logging_file import get_logger
 
 logger = get_logger(__name__)
@@ -126,13 +126,21 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     db = load_db()
     if user_id not in db:
+
+        default_timezone = "Europe/Moscow"
         db[user_id] = {
             "fio": None,
             "selected_options": [],
             "options_goal": {},
-            "options_data": {}
+            "options_data": {},
+            "timezone": default_timezone,
+            "buddies": {},
+            "buddies_remind": "00:00"
         }
         save_db(db)
+        await schedule_fixed_reminder(user_id, default_timezone, 21)
+        await schedule_fixed_reminder(user_id, default_timezone, 23)
+
         await message.answer(MESSAGES["start"])
         await state.set_state(ConfigState.fio)
     else:
@@ -145,7 +153,6 @@ async def process_fio(message: Message, state: FSMContext) -> None:
     fio = message.text.strip()
     db = load_db()
     db[user_id]["fio"] = fio
-    db[user_id]["timezone"] = "Europe/Moscow"
     save_db(db)
     text = MESSAGES["get_location"]
 
@@ -177,6 +184,12 @@ async def handle_location(message: Message):
     db[user_id]["timezone"] = timezone_str
     fio = db[user_id]["fio"]
     save_db(db)
+
+    await schedule_fixed_reminder(user_id, timezone_str, 21)
+    await schedule_fixed_reminder(user_id, timezone_str, 23)
+
+    if db[user_id].get("buddies_remind"):
+        await schedule_custom_reminder(user_id, db[user_id]["buddies_remind"], timezone_str)
 
     text = MESSAGES["welcome"](fio)
 
@@ -639,7 +652,7 @@ async def handle_remind_time(message: Message, state: FSMContext):
 
     db.get(user_id, {})["buddies_remind"] = new_time
     save_db(db)
-    await schedule_reminder(user_id, new_time, db[user_id]["timezone"])
+    await schedule_custom_reminder(user_id, new_time, db[user_id]["timezone"])
 
     await message.answer(f"Время напоминания установлено: {new_time}")
     await state.clear()
