@@ -21,6 +21,8 @@ router = Router()
 
 FORMAT = "%Y-%m-%d"
 
+bool_measures = ["water", "coordinate", "plank", "pray"]
+
 
 # FSM-состояния для настройки параметров
 class ConfigState(StatesGroup):
@@ -40,6 +42,10 @@ class ConfigState(StatesGroup):
     intention = State()
     note = State()
 
+    breathholding = State()
+
+    bars = State()
+
 
 # FSM-состояния для внесения данных в статистику
 class DataEntryState(StatesGroup):
@@ -55,8 +61,6 @@ async def get_next_option_to_set(message: Message, state: FSMContext):
     config_items = data.get("config_items", [])
     if len(config_items) > 0:
         next_item = config_items.pop(0)
-
-        print(config_items, next_item)
 
         await state.update_data(config_items=config_items)
         if next_item == "wakeup_time":
@@ -92,11 +96,20 @@ async def get_next_option_to_set(message: Message, state: FSMContext):
             await message.answer(MESSAGES["enter_swimming"])
             await state.set_state(ConfigState.swimming)
 
+        elif next_item == "breathholding":
+            await message.answer(MESSAGES["enter_breathholding"])
+            await state.set_state(ConfigState.breathholding)
+
+        elif next_item == "bars":
+            await message.answer(MESSAGES["enter_bars"])
+            await state.set_state(ConfigState.bars)
+
         # elif next_item == "water":
         #     await message.answer(MESSAGES["enter_water"])
         #     await state.set_state(ConfigState.water)
 
-        elif next_item in ["battery", "water", "intention", "note"]:
+        #elif next_item in ["battery", "water", "intention", "note"]:
+        else:
             await get_next_option_to_set(message, state)
     else:
         await message.answer(MESSAGES["config_complete"], reply_markup=get_reply_keyboard())
@@ -354,6 +367,43 @@ async def process_swimming(message: Message, state: FSMContext) -> None:
     save_db(db)
     await get_next_option_to_set(message, state)
 
+@router.message(ConfigState.swimming)
+async def process_swimming(message: Message, state: FSMContext) -> None:
+    try:
+        datetime.strptime(message.text, '%M:%S')
+    except ValueError:
+        await message.answer("Неверный формат времени. Введите время в формате Минуты:Секунды (например, 01:40):")
+        return
+
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["swimming"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)
+
+
+@router.message(ConfigState.breathholding)
+async def process_abs(message: Message, state: FSMContext) -> None:
+    if not is_number(message.text):
+        await message.answer("Пожалуйста, введите корректное числовое значение для пресса.")
+        return
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["breathholding"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)
+
+
+@router.message(ConfigState.bars)
+async def process_abs(message: Message, state: FSMContext) -> None:
+    if not is_number(message.text):
+        await message.answer("Пожалуйста, введите корректное числовое значение для брусьев.")
+        return
+    user_id = str(message.from_user.id)
+    db = load_db()
+    db[user_id]["options_goal"]["bars"] = message.text
+    save_db(db)
+    await get_next_option_to_set(message, state)
 
 """@router.message(ConfigState.water)
 async def process_water(message: Message, state: FSMContext) -> None:
@@ -387,6 +437,8 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     user_id = str(message.from_user.id)
     data = await state.get_data()
     category_key = data.get("entry_category")
+
+
     if category_key in ["wakeup_time", "swimming"]:
         try:
             datetime.strptime(message.text, '%H:%M')
@@ -403,11 +455,11 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
         if not message.text.isdigit() or not (1 <= int(message.text) <= 10):
             await message.answer(MESSAGES["invalid_battery"])
             return
-    elif category_key in ["steps", "pushups", "pullups", "squats", "abs"]:
+    elif category_key in ["steps", "pushups", "pullups", "squats", "abs", "bars", "breathholding"]:
         if not message.text.isdigit():
             await message.answer("Пожалуйста, введите корректное числовое значение. Попробуйте снова:")
             return
-    elif category_key == "water":
+    elif category_key in bool_measures:
         if not message.text.strip().lower() in ["ага", "да", "конечно", "нет", "не", "неа"]:
             await message.answer("Пожалуйста, введите корректное значение (Да/Нет). Попробуйте снова:")
             return
@@ -425,7 +477,6 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
     current_dt = user_time.strftime(FORMAT)
 
     now_dt = datetime.strptime(current_dt, FORMAT)
-    print(now_dt)
 
     if category_key not in user_entry["options_data"]:
         user_entry["options_data"][category_key] = []
@@ -444,7 +495,7 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
 
     value_to_save = str(message.text)
 
-    if category_key == "water":
+    if category_key in bool_measures:
         if value_to_save.lower() in ["ага", "да", "конечно"]:
             value_to_save = "1"
         else:
@@ -471,8 +522,6 @@ async def process_data_entry(message: Message, state: FSMContext) -> None:
 
 
 def get_daily_report(user_id):
-    daily_report_text = ""
-
     daily_report_elements = []
 
     db = load_db()
@@ -498,7 +547,7 @@ def get_daily_report(user_id):
             record = record[0]
             name = CATEGORIES.get(key, key)
             record_val = f": {record['value']}"
-            if key == 'water':
+            if key in bool_measures:
                 record_val = ''
 
             if key not in ["intention", "note"]:

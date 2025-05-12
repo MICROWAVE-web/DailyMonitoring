@@ -53,7 +53,6 @@ def view_report(user_id):
     request_data = load_data().get(user_id)
     if request_data is None:
         return jsonify({"error": "No data"}), 400
-    print(json.dumps(request_data))
     return render_template('report.html', data=json.dumps(request_data))
 
 
