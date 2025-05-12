@@ -443,6 +443,7 @@ async def process_water(message: Message, state: FSMContext) -> None:
 # --- Обработчики внесения данных статистики ---
 @router.callback_query(lambda c: c.data and c.data.startswith("entry:"))
 async def callback_data_entry(callback: CallbackQuery, state: FSMContext) -> None:
+    print(state.get_state("yesterday"))
     category_key = callback.data.split(":")[1]
     await state.update_data(entry_category=category_key)
     category_name = CATEGORIES.get(category_key, category_key)
